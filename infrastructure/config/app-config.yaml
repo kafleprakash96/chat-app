@@ -1,0 +1,11 @@
+---
+# ConfigMap for application configuration
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: app-config
+data:
+  SPRING_KAFKA_BOOTSTRAP_SERVERS: "kafka:9092"
+  SPRING_DATASOURCE_URL: "jdbc:mysql://mysql:3306/products_database"
+  SPRING_DATASOURCE_USERNAME: "root"
+  ZOOKEEPER_HOST: "zookeeper:2181"
