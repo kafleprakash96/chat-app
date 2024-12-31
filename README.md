@@ -27,25 +27,12 @@ Each microservice is designed to handle its responsibilities independently, ensu
 
 - **Responsibilities**:
     - Acts as a Kafka producer.
-    - Exposes an endpoint to place orders.
+    - Exposes an endpoint to place orders. `http://localhost:8080/orders/place-order`
     - Publishes order details as messages to the Kafka topic `order-topic`.
 - **Dependencies**:
     - `spring-boot-starter-web`
     - `spring-boot-starter-data-jpa`
     - `spring-kafka`
-- **Key Models**:
-    - `Order`:
-      ```java
-      @Id
-      @GeneratedValue(strategy = GenerationType.IDENTITY)
-      private Long id;
-  
-      private String productName;
-      private int quantity;
-      private double price;
-      @Enumerated(EnumType.STRING)
-      private PaymentStatus paymentStatus; // Set to COMPLETED when order is placed
-      ```
 
 ### 2. Inventory-Service
 
@@ -55,16 +42,7 @@ Each microservice is designed to handle its responsibilities independently, ensu
 - **Dependencies**:
     - `spring-boot-starter-data-jpa`
     - `spring-kafka`
-- **Key Models**:
-    - `Inventory`:
-      ```java
-      @Id
-      private Long id;
-  
-      private String productName;
-      private int availableQuantity;
-      private double price;
-      ```
+
 
 ### 3. Billing-Service
 
@@ -74,33 +52,52 @@ Each microservice is designed to handle its responsibilities independently, ensu
 - **Dependencies**:
     - `spring-boot-starter-data-jpa`
     - `spring-kafka`
-- **Key Models**:
-    - `Billing`:
-      ```java
-      @Id
-      @GeneratedValue(strategy = GenerationType.IDENTITY)
-      private Long id;
-  
-      private Long orderId;
-      private String productName;
-      private int quantity;
-      private double price;
-      private LocalDateTime billingDate;
-      ```
 
 ---
 
-## Steps to Run the Project
+## Steps to Run the Project Locally
 
 ### Prerequisites
 
 1. Install **Kafka** and ensure it is running.
     - Start the Kafka broker and Zookeeper.
+      ![zookeeper-kafka](screenshots/zookeeper-kafka.png)
+
 2. Install **Java 17** or higher.
 3. Install **Maven** for dependency management.
 4. Install **MySQL** and configure the database for each service.
 
+![java-maven-mysql.png](screenshots/java-maven-mysql.png)
+
+---
+
+### Create database `products_database` in your mysql
+
+- Using DBeaver for working with database
+
+```bash
+    CREATE DATABASE products_database;
+```
+
+![database1.png](screenshots/ss24.png)
+
+## Before running, provide database credentials
+ 
+Navigate to `src/main/resources/application.properties` and make the below changes for each service.
+
+```properties
+spring.datasource.username = <your-username>
+spring.datasource.password = <your-password>
+
+spring.jpa.generate-ddl = true
+spring.jpa.hibernate.ddl-auto = update
+```
+Replace `<your-username>` and `<your-password>` with your db credentials 
+
+---
+
 ### Running Each Service
+
 
 1. **Order-Service**:
 
@@ -108,11 +105,19 @@ Each microservice is designed to handle its responsibilities independently, ensu
     - Run:
       ```bash
       mvn clean install
+      ```
+      ```
       mvn spring-boot:run
       ```
-    - API Endpoint:
+      Once the application is up and running, verify the table `orders' is created. Refresh the database.
+<br>
+
+   - API Endpoint:
+      `http://localhost:8080/orders/place-order`
+   
+        - Open Postman, and test the endpoint by providing the below request body.
+
       ```
-      POST http://localhost:8080/orders/place-order
       {
           "productName": "iPhone 14",
           "quantity": 1,
@@ -120,15 +125,82 @@ Each microservice is designed to handle its responsibilities independently, ensu
       }
       ```
 
-2. **Inventory-Service**:
+![ss6.png](screenshots%2Fss6.png)
 
-    - Navigate to the `inventory-service` directory.
+Verify the logs
+
+![ss8.png](screenshots/ss8.png)
+
+Verify the table `orders` is updated.
+
+   ```bash
+    USE products_database;
+   ```
+   ```bash
+   SELECT * FROM orders o ;
+   ```
+
+![ss11.png](screenshots%2Fss11.png)
+
+Verify the kafka-topic. After POST request is made, the service produce the message in topic `order-topic`
+
+![ss9.png](screenshots%2Fss9.png)
+
+```bash
+    ./bin/kafka-topics.sh --bootstrap-server localhost:9092 --list
+```
+![ss7.png](screenshots/ss7.png)
+
+### <i> IF YOU HAVE COME THIS FAR, YOUR APP IS CONNECTING WITH KAFKA AND MYSQL </i>
+
+
+2. **Inventory-Service**:
+ Inventory Service is a `consumer` service that works with table `inventory` which update the table when message is consumed from topic `order-topic` produced by `order-service`
+
+<h3> Before running this service, create a table <i>inventory</i> and insert some data to work with. Use the following queries.</h3>
+
+```bash
+CREATE TABLE inventory (
+                           id INT PRIMARY KEY,
+                           product_name VARCHAR(255) NOT NULL,
+                           available_quantity INT NOT NULL,
+                           price DECIMAL(10, 2) NOT NULL
+);
+```
+```bash
+INSERT INTO inventory (id, product_name, available_quantity, price)
+VALUES
+    (1, 'iPhone 14', 50, 999.99),
+    (2, 'Samsung Galaxy S23', 50, 999.99),
+    (3, 'Google Pixel 7', 50, 999.99);
+    
+```
+
+![ss13.png](screenshots%2Fss13.png)
+
+- Navigate to the `inventory-service` directory.
     - Run:
       ```bash
       mvn clean install
+      ```
+      
+      ```bash
       mvn spring-boot:run
       ```
-    - Inventory gets updated automatically when an order is placed.
+      
+    - Verify the logs. The consumer is created.
+  ![ss14.png](screenshots%2Fss14.png)
+    - Verify in kafka. The consumer group `inventory-group-id` is created.
+  ```bash
+    ./bin/kafka-consumer-groups.sh --bootstrap-server localhost:9092 --list
+  ```
+    ![ss15.png](screenshots%2Fss15.png)
+
+
+  
+After `inventory-service` is up and running, run the `billing-service`
+
+- Inventory gets updated automatically when an order is placed.
 
 3. **Billing-Service**:
 
@@ -136,9 +208,57 @@ Each microservice is designed to handle its responsibilities independently, ensu
     - Run:
       ```bash
       mvn clean install
+      ```
+      ```bash
       mvn spring-boot:run
       ```
-    - Billing records are created automatically when an order is placed.
+
+    - Verify the logs. The consumer is created.
+    - Verify in kafka. The consumer group `billing-group-id` is created.
+  ```bash
+    ./bin/kafka-consumer-groups.sh --bootstrap-server localhost:9092 --list
+  ```
+![ss17.png](screenshots%2Fss17.png)
+
+
+   <b>Billing table table is automatically created when application is up and running.</b>
+
+```bash
+SELECT * FROM billing b ;
+```
+
+![ss16.png](screenshots%2Fss16.png)
+
+---
+
+---
+<h3>Once all three services is up and running, hit POST request api to produce message.</h4>
+![ss18.png](screenshots%2Fss18.png)
+<h4>Verify all service logs</h4>
+- `order-service: Produce the message and update the orders table`
+![ss9.png](screenshots%2Fss9.png)
+![ss11.png](screenshots%2Fss11.png)
+
+<br>
+
+- `inventory-service: Consume the message and update the inventory table`
+![ss14.png](screenshots%2Fss14.png)
+![ss28.png](screenshots%2Fss28.png)
+  <br>
+- `billing-service: Consume the message and update the billing table`
+![ss26.png](screenshots%2Fss26.png)
+![ss28.png](screenshots%2Fss28.png)
+
+<br>
+
+<h4>Verify the messages in kafka-console</h4>
+
+```bash
+./bin/kafka-console-consumer.sh --bootstrap-server localhost:9092 --topic order-topic --from-beginning
+```
+![ss23.png](screenshots%2Fss23.png)
+
+---
 
 ---
 
