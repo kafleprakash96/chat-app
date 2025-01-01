@@ -27,6 +27,11 @@ spec:
               value: "inventory-group-id"
             - name: KAFKA_AUTO_OFFSET_RESET
               value: "earliest"
+            - name: SPRING_DATASOURCE_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: mysql-secret
+                  key: mysql-root-password
           resources:
             requests:
               memory: "256Mi"

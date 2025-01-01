@@ -118,51 +118,6 @@ spec:
               memory: "1Gi"
               cpu: "1"
 ---
-# MySQL Service
-apiVersion: v1
-kind: Service
-metadata:
-  name: mysql
-spec:
-  selector:
-    app: mysql
-  ports:
-    - port: 3306
-
-
----
-# MySQL Deployment
-apiVersion: apps/v1
-kind: Deployment
-metadata:
-  name: mysql
-spec:
-  selector:
-    matchLabels:
-      app: mysql
-  template:
-    metadata:
-      labels:
-        app: mysql
-    spec:
-      containers:
-        - name: mysql
-          image: mysql:8.0
-          env:
-            - name: MYSQL_ROOT_PASSWORD
-              value: "password"
-            - name: MYSQL_DATABASE
-              value: "products_database"
-          ports:
-            - containerPort: 3306
-          resources:
-            requests:
-              memory: "256Mi"
-              cpu: "250m"
-            limits:
-              memory: "512Mi"
-              cpu: "500m"
----
 # Order Service
 apiVersion: v1
 kind: Service
@@ -201,6 +156,12 @@ spec:
           envFrom:
             - configMapRef:
                 name: app-config
+          env:
+            - name: SPRING_DATASOURCE_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: mysql-secret
+                  key: mysql-root-password
           resources:
             requests:
               memory: "256Mi"
@@ -208,6 +169,7 @@ spec:
             limits:
               memory: "512Mi"
               cpu: "500m"
+
 ---
 # Inventory Service
 apiVersion: v1
@@ -251,6 +213,11 @@ spec:
               value: "inventory-group-id"
             - name: KAFKA_AUTO_OFFSET_RESET
               value: "earliest"
+            - name: SPRING_DATASOURCE_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: mysql-secret
+                  key: mysql-root-password
           resources:
             requests:
               memory: "256Mi"
@@ -302,6 +269,11 @@ spec:
               value: "billing-group-id"
             - name: KAFKA_AUTO_OFFSET_RESET
               value: "earliest"
+            - name: SPRING_DATASOURCE_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: mysql-secret
+                  key: mysql-root-password
           resources:
             requests:
               memory: "256Mi"
@@ -309,6 +281,7 @@ spec:
             limits:
               memory: "512Mi"
               cpu: "500m"
+
 ---
 # Inventory Service
 apiVersion: v1

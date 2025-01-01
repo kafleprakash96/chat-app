@@ -1,5 +1,4 @@
----
-# ConfigMap for application configuration
+# app-config.yaml
 apiVersion: v1
 kind: ConfigMap
 metadata:
@@ -9,3 +8,7 @@ data:
   SPRING_DATASOURCE_URL: "jdbc:mysql://mysql:3306/products_database"
   SPRING_DATASOURCE_USERNAME: "root"
   ZOOKEEPER_HOST: "zookeeper:2181"
+  # Added MySQL specific configurations
+  SPRING_JPA_PROPERTIES_HIBERNATE_DIALECT: "org.hibernate.dialect.MySQLDialect"
+  SPRING_JPA_HIBERNATE_DDL_AUTO: "update"
+  SPRING_DATASOURCE_DRIVER_CLASS_NAME: "com.mysql.cj.jdbc.Driver"
