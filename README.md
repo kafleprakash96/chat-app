@@ -61,13 +61,13 @@ Each microservice is designed to handle its responsibilities independently, ensu
 
 1. Install **Kafka** and ensure it is running.
     - Start the Kafka broker and Zookeeper.
-      ![zookeeper-kafka](screenshots/zookeeper-kafka.png)
+      ![zookeeper-kafka](screenshots/local/zookeeper-kafka.png)
 
 2. Install **Java 17** or higher.
 3. Install **Maven** for dependency management.
 4. Install **MySQL** and configure the database for each service.
 
-![java-maven-mysql.png](screenshots/java-maven-mysql.png)
+![java-maven-mysql.png](screenshots/local/java-maven-mysql.png)
 
 ---
 
@@ -79,7 +79,7 @@ Each microservice is designed to handle its responsibilities independently, ensu
     CREATE DATABASE products_database;
 ```
 
-![database1.png](screenshots/ss24.png)
+![database1.png](screenshots/local/ss24.png)
 
 ## Before running, provide database credentials
  
@@ -125,11 +125,11 @@ Replace `<your-username>` and `<your-password>` with your db credentials
       }
       ```
 
-![ss6.png](screenshots%2Fss6.png)
+![ss6.png](screenshots/local/ss6.png)
 
 Verify the logs
 
-![ss8.png](screenshots/ss8.png)
+![ss8.png](screenshots/local/ss8.png)
 
 Verify the table `orders` is updated.
 
@@ -140,16 +140,16 @@ Verify the table `orders` is updated.
    SELECT * FROM orders o ;
    ```
 
-![ss11.png](screenshots%2Fss11.png)
+![ss11.png](screenshots/local/ss11.png)
 
 Verify the kafka-topic. After POST request is made, the service produce the message in topic `order-topic`
 
-![ss9.png](screenshots%2Fss9.png)
+![ss9.png](screenshots/local/ss9.png)
 
 ```bash
     ./bin/kafka-topics.sh --bootstrap-server localhost:9092 --list
 ```
-![ss7.png](screenshots/ss7.png)
+![ss7.png](screenshots/local/ss7.png)
 
 ### <i> IF YOU HAVE COME THIS FAR, YOUR APP IS CONNECTING WITH KAFKA AND MYSQL </i>
 
@@ -176,7 +176,7 @@ VALUES
     
 ```
 
-![ss13.png](screenshots%2Fss13.png)
+![ss13.png](screenshots/local/ss13.png)
 
 - Navigate to the `inventory-service` directory.
     - Run:
@@ -189,12 +189,12 @@ VALUES
       ```
       
     - Verify the logs. The consumer is created.
-  ![ss14.png](screenshots%2Fss14.png)
+  ![ss14.png](screenshots/local/ss14.png)
     - Verify in kafka. The consumer group `inventory-group-id` is created.
   ```bash
     ./bin/kafka-consumer-groups.sh --bootstrap-server localhost:9092 --list
   ```
-    ![ss15.png](screenshots%2Fss15.png)
+    ![ss15.png](screenshots/local/ss15.png)
 
 
   
@@ -218,7 +218,7 @@ After `inventory-service` is up and running, run the `billing-service`
   ```bash
     ./bin/kafka-consumer-groups.sh --bootstrap-server localhost:9092 --list
   ```
-![ss17.png](screenshots%2Fss17.png)
+![ss17.png](screenshots/local/ss17.png)
 
 
    <b>Billing table table is automatically created when application is up and running.</b>
@@ -227,27 +227,27 @@ After `inventory-service` is up and running, run the `billing-service`
 SELECT * FROM billing b ;
 ```
 
-![ss16.png](screenshots%2Fss16.png)
+![ss16.png](screenshots/local/ss16.png)
 
 ---
 
 ---
 <h3>Once all three services is up and running, hit POST request api to produce message.</h4>
-![ss18.png](screenshots%2Fss18.png)
+![ss18.png](screenshots/local/ss18.png)
 <h4>Verify all service logs</h4>
 - `order-service: Produce the message and update the orders table`
-![ss9.png](screenshots%2Fss9.png)
-![ss11.png](screenshots%2Fss11.png)
+![ss9.png](screenshots/local/ss9.png)
+![ss11.png](screenshots/local/ss11.png)
 
 <br>
 
 - `inventory-service: Consume the message and update the inventory table`
-![ss14.png](screenshots%2Fss14.png)
-![ss28.png](screenshots%2Fss28.png)
+![ss14.png](screenshots/local/ss14.png)
+![ss28.png](screenshots/local/ss28.png)
   <br>
 - `billing-service: Consume the message and update the billing table`
-![ss26.png](screenshots%2Fss26.png)
-![ss28.png](screenshots%2Fss28.png)
+![ss26.png](screenshots/local/ss26.png)
+![ss28.png](screenshots/local/ss28.png)
 
 <br>
 
@@ -256,7 +256,7 @@ SELECT * FROM billing b ;
 ```bash
 ./bin/kafka-console-consumer.sh --bootstrap-server localhost:9092 --topic order-topic --from-beginning
 ```
-![ss23.png](screenshots%2Fss23.png)
+![ss23.png](screenshots/local/ss23.png)
 
 ---
 

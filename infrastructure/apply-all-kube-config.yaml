@@ -1,0 +1,361 @@
+---
+apiVersion: v1
+kind: ResourceQuota
+metadata:
+  name: limit-quotas
+spec:
+  hard:
+    requests.cpu: "2"
+    requests.memory: "2Gi"
+    limits.cpu: "4"
+    limits.memory: "4Gi"
+
+---
+# ConfigMap for application configuration
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: app-config
+data:
+  SPRING_KAFKA_BOOTSTRAP_SERVERS: "kafka:9092"
+  SPRING_DATASOURCE_URL: "jdbc:mysql://mysql:3306/products_database"
+  SPRING_DATASOURCE_USERNAME: "root"
+  ZOOKEEPER_HOST: "zookeeper:2181"
+---
+# Zookeeper Service
+apiVersion: v1
+kind: Service
+metadata:
+  name: zookeeper
+spec:
+  selector:
+    app: zookeeper
+  ports:
+    - port: 2181
+
+---
+# Zookeeper Deployment
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: zookeeper
+spec:
+  selector:
+    matchLabels:
+      app: zookeeper
+  template:
+    metadata:
+      labels:
+        app: zookeeper
+    spec:
+      containers:
+        - name: zookeeper
+          image: wurstmeister/zookeeper
+          ports:
+            - containerPort: 2181
+          resources:
+            requests:
+              memory: "128Mi"
+              cpu: "100m"
+            limits:
+              memory: "256Mi"
+              cpu: "200m"
+---
+# Kafka Service
+apiVersion: v1
+kind: Service
+metadata:
+  name: kafka
+spec:
+  selector:
+    app: kafka
+  ports:
+    - port: 9092
+
+
+---
+# Kafka Deployment
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: kafka
+spec:
+  selector:
+    matchLabels:
+      app: kafka
+  template:
+    metadata:
+      labels:
+        app: kafka
+    spec:
+      containers:
+        - name: kafka
+          image: wurstmeister/kafka
+          ports:
+            - containerPort: 9092
+          env:
+            - name: KAFKA_ZOOKEEPER_CONNECT
+              value: "zookeeper:2181"
+            - name: KAFKA_LISTENERS
+              value: "PLAINTEXT://0.0.0.0:9092"
+            - name: KAFKA_ADVERTISED_LISTENERS
+              value: "PLAINTEXT://kafka:9092"
+            - name: KAFKA_LISTENER_SECURITY_PROTOCOL_MAP
+              value: "PLAINTEXT:PLAINTEXT"
+            - name: KAFKA_INTER_BROKER_LISTENER_NAME
+              value: "PLAINTEXT"
+            - name: KAFKA_BROKER_ID
+              value: "1"
+            - name: KAFKA_PORT
+              value: "9092"
+            - name: KAFKA_LOG_DIRS
+              value: "/kafka-logs"
+          resources:
+            requests:
+              memory: "512Mi"
+              cpu: "500m"
+            limits:
+              memory: "1Gi"
+              cpu: "1"
+---
+# MySQL Service
+apiVersion: v1
+kind: Service
+metadata:
+  name: mysql
+spec:
+  selector:
+    app: mysql
+  ports:
+    - port: 3306
+
+
+---
+# MySQL Deployment
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: mysql
+spec:
+  selector:
+    matchLabels:
+      app: mysql
+  template:
+    metadata:
+      labels:
+        app: mysql
+    spec:
+      containers:
+        - name: mysql
+          image: mysql:8.0
+          env:
+            - name: MYSQL_ROOT_PASSWORD
+              value: "password"
+            - name: MYSQL_DATABASE
+              value: "products_database"
+          ports:
+            - containerPort: 3306
+          resources:
+            requests:
+              memory: "256Mi"
+              cpu: "250m"
+            limits:
+              memory: "512Mi"
+              cpu: "500m"
+---
+# Order Service
+apiVersion: v1
+kind: Service
+metadata:
+  name: order-service
+spec:
+  type: LoadBalancer
+  selector:
+    app: order-service-deployment
+  ports:
+    - port: 8080
+      targetPort: 8080
+
+
+---
+# Order Service (Producer) Deployment
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: order-service-deployment
+spec:
+  selector:
+    matchLabels:
+      app: order-service-deployment
+  template:
+    metadata:
+      labels:
+        app: order-service-deployment
+    spec:
+      containers:
+        - name: order-service-container
+          image: order-service-app:latest
+          imagePullPolicy: Never
+          ports:
+            - containerPort: 8080
+          envFrom:
+            - configMapRef:
+                name: app-config
+          resources:
+            requests:
+              memory: "256Mi"
+              cpu: "250m"
+            limits:
+              memory: "512Mi"
+              cpu: "500m"
+---
+# Inventory Service
+apiVersion: v1
+kind: Service
+metadata:
+  name: inventory-service
+spec:
+  type: NodePort
+  selector:
+    app: inventory-service-deployment
+  ports:
+    - port: 8081
+      targetPort: 8081
+
+---
+# Inventory Service (Consumer) Deployment
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: inventory-service-deployment
+spec:
+  selector:
+    matchLabels:
+      app: inventory-service-deployment
+  template:
+    metadata:
+      labels:
+        app: inventory-service-deployment
+    spec:
+      containers:
+        - name: inventory-service-container
+          image: inventory-service-app:latest
+          imagePullPolicy: Never
+          ports:
+            - containerPort: 8081
+          envFrom:
+            - configMapRef:
+                name: app-config
+          env:
+            - name: KAFKA_CONSUMER_GROUP_ID
+              value: "inventory-group-id"
+            - name: KAFKA_AUTO_OFFSET_RESET
+              value: "earliest"
+          resources:
+            requests:
+              memory: "256Mi"
+              cpu: "250m"
+            limits:
+              memory: "512Mi"
+              cpu: "500m"
+
+---
+# Billing Service
+apiVersion: v1
+kind: Service
+metadata:
+  name: billing-service
+spec:
+  type: NodePort
+  selector:
+    app: billing-service-deployment
+  ports:
+    - port: 8082
+      targetPort: 8082
+
+---
+# Billing Service (Consumer) Deployment
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: billing-service-deployment
+spec:
+  selector:
+    matchLabels:
+      app: billing-service-deployment
+  template:
+    metadata:
+      labels:
+        app: billing-service-deployment
+    spec:
+      containers:
+        - name: billing-service-container
+          image: billing-service-app:latest
+          imagePullPolicy: Never
+          ports:
+            - containerPort: 8082
+          envFrom:
+            - configMapRef:
+                name: app-config
+          env:
+            - name: KAFKA_CONSUMER_GROUP_ID
+              value: "billing-group-id"
+            - name: KAFKA_AUTO_OFFSET_RESET
+              value: "earliest"
+          resources:
+            requests:
+              memory: "256Mi"
+              cpu: "250m"
+            limits:
+              memory: "512Mi"
+              cpu: "500m"
+---
+# Inventory Service
+apiVersion: v1
+kind: Service
+metadata:
+  name: inventory-service
+spec:
+  type: NodePort
+  selector:
+    app: inventory-service-deployment
+  ports:
+    - port: 8081
+      targetPort: 8081
+
+---
+# Inventory Service (Consumer) Deployment
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: inventory-service-deployment
+spec:
+  selector:
+    matchLabels:
+      app: inventory-service-deployment
+  template:
+    metadata:
+      labels:
+        app: inventory-service-deployment
+    spec:
+      containers:
+        - name: inventory-service-container
+          image: inventory-service-app:latest
+          imagePullPolicy: Never
+          ports:
+            - containerPort: 8081
+          envFrom:
+            - configMapRef:
+                name: app-config
+          env:
+            - name: KAFKA_CONSUMER_GROUP_ID
+              value: "inventory-group-id"
+            - name: KAFKA_AUTO_OFFSET_RESET
+              value: "earliest"
+          resources:
+            requests:
+              memory: "256Mi"
+              cpu: "250m"
+            limits:
+              memory: "512Mi"
+              cpu: "500m"
