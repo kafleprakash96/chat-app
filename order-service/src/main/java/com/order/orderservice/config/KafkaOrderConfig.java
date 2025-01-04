@@ -1,10 +1,12 @@
 package com.order.orderservice.config;
 
+import org.apache.kafka.clients.admin.NewTopic;
 import org.apache.kafka.clients.producer.ProducerConfig;
 import org.apache.kafka.common.serialization.StringSerializer;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.kafka.config.TopicBuilder;
 import org.springframework.kafka.core.DefaultKafkaProducerFactory;
 import org.springframework.kafka.core.KafkaTemplate;
 import org.springframework.kafka.core.ProducerFactory;
@@ -17,6 +19,15 @@ public class KafkaOrderConfig {
 
     @Value("${SPRING_KAFKA_BOOTSTRAP_SERVERS}")
     private String bootstrapServers;
+
+    @Value("${SPRING_KAFKA_PRODUCER_TOPIC}")
+    private String topic;
+
+
+    @Bean
+    public NewTopic createTopic(){
+       return TopicBuilder.name(topic).build();
+    }
 
     @Bean
     public Map<String, Object> producerConfigs() {

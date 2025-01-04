@@ -7,6 +7,7 @@ import com.order.orderservice.repository.OrderRepository;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.kafka.core.KafkaTemplate;
 import org.springframework.stereotype.Service;
 
@@ -26,6 +27,9 @@ public class OrderService {
 
     @Autowired
     private ObjectMapper objectMapper;
+
+    @Value("${SPRING_KAFKA_PRODUCER_TOPIC}")
+    private String topic;
 
     public Map<String,Object> placeOrder(Order order){
 
@@ -49,7 +53,7 @@ public class OrderService {
             String messageAsJson = objectMapper.writeValueAsString(orderMessage);
 
             // Send the JSON string to Kafka
-            kafkaTemplate.send("order-topic", messageAsJson);
+            kafkaTemplate.send(topic, messageAsJson);
             log.info("Message published successfully. Message: {}",messageAsJson);
         } catch (Exception e) {
             log.error("Failed to serialize order message to JSON", e);
