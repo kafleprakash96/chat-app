@@ -83,10 +83,10 @@ docker build -t billing-service:latest .
 
 - Verify docker images
 
-```bash
-docker images
-```
-![kube9.png](screenshots%2Fkubernetes%2Fkube9.png)
+    ```bash
+    docker images
+    ```
+    ![kube9.png](screenshots%2Fkubernetes%2Fkube9.png)
 
 ## Deploying Infrastructure Components
 
@@ -165,41 +165,44 @@ kubectl get service
 
 ![Screenshot 2025-01-05 at 7.44.23 PM.png](screenshots%2Fkubernetes%2FScreenshot%202025-01-05%20at%207.44.23%E2%80%AFPM.png)
 
-   
-   Instead of deploying all services separately, you can directly apply `apply-all-kube-config.yaml`. This file contains all the kubernetes configuration for deployment,service,configmap,resource quota.  
-<br>
-Navigate to infrastructure directory and run the following command
+# Step 2:
+<h2>Deploy all other services</h2>
+
+Navigate to infrastructure directory and run the following command. The following commands create necessary config, deployment,services for zookeeper, kafka, order-service, inventory-service and billing-service.
 ```bash
 kubectl apply -f apply-all-kube-config.yaml
 ```
 ![kube10.png](screenshots%2Fkubernetes%2Fkube10.png)
 
-kubectl pull the images for mysql, zookeeper, kafka.
-On running the above command, kubectl creates the containers for all services, mysql, zookeeper, kafka.
+- **_kubectl pull the images for mysql, zookeeper, kafka._**
+<br>
+<br>
+    Verify with following
 
-```bash
-docker images
-```
-```bash
-docker ps
-```
-![kube11.png](screenshots%2Fkubernetes%2Fkube11.png)
+    ```bash
+    docker images
+    ```
+    ```bash
+    docker ps
+    ```
+    ![kube11.png](screenshots%2Fkubernetes%2Fkube11.png)
 
-
-Verify the deployment,pods,service
-```bash
-kubectl get all
-```
+    Verify the deployment,pods,service with following command
+    
+    ```bash
+    kubectl get all
+    ```
 ![kube12.png](screenshots%2Fkubernetes%2Fkube12.png)
 
 
 
-## Verify the following
+## Once all pods are up and running, verify the following
     
    - Kafka topics is created.
    - All tables are created in mysql
-   - Able to produce topic
-   - Service consume the messages and update the table
+   - Service is able to produce message to topic.
+   - Service is able to consume the message.
+   - Verify the tables are updated
 
 ### 1.Kafka topics is created.
 
@@ -269,12 +272,105 @@ show tables;
 
 ![Screenshot 2025-01-05 at 8.41.03 PM.png](screenshots%2Fkubernetes%2FScreenshot%202025-01-05%20at%208.41.03%E2%80%AFPM.png)
 
-<h2><b><i>All tables are created.</i></b></h2>
+_All tables are created._
 
-### 3.Able to produce topic
+### 3.Service is able to produce message to topic
+
+The `order-service` app is used for producing message to the topic.
+It provides POST endpoint to produce message.
+
+The endpoint can be executed within and outside the cluster.
+- Within cluster  
+
+    To execute the endpoint with curl, execute order-service pod and use curl to hit the endpoint.
+
+    - Use following command to execute order-service pod
+    
+    ```bash
+    kubectl exec -it <your-pod-name> -- /bin/bash
+    ```
+   ```bash
+    kubectl exec -it order-service-deployment-7797579499-f4hxv -- /bin/bash
+    ```
+   - Once executed inside pod, use curl command to hit endpoint 
+
+    ```bash
+    curl -X POST http://localhost:8080/orders/place-order -H "Content-Type: application/json" -d '{"productName":"Samsung Galaxy S23","quantity":1,"price":999.99}'
+    ```
+    ![Screenshot 2025-01-05 at 10.02.58 PM.png](screenshots%2Fkubernetes%2FScreenshot%202025-01-05%20at%2010.02.58%E2%80%AFPM.png)
+    
+    - Verify the application logs
+    ```bash
+    kubectl logs -f <pod_name>
+    ```
+  ```bash
+  kubectl logs -f order-service-deployment-7797579499-f4hxv
+  kubectl logs -f billing-service-deployment-5bcd779767-pbskn
+  kubectl logs -f inventory-service-deployment-75bbbfcb9f-f8rfr
+  ```            
+  ![Screenshot 2025-01-05 at 9.44.12 PM.png](screenshots%2Fkubernetes%2FScreenshot%202025-01-05%20at%209.44.12%E2%80%AFPM.png)
 
 
-### 4.Service consume the messages and update the table
+### 4.Verify message is consumed
+
+- Execute the kafka pod with following command
+
+```bash
+kubectl exec -it <your-pod-name> -- /bin/bash
+```
+
+```bash
+kubectl exec -it kafka-8cf75665c-57wt2 -- /bin/bash
+```
+
+- Check the messages consumed in order-topic
+    - Navigate to kafka directory
+    ```bash
+  cd /opt/kafka  
+  ```
+    - Enter the following command
+  ```bash
+    ./bin/kafka-console-consumer.sh --bootstrap-server localhost:9092 --topic order-topic --from-beginning
+    ```
+  ![Screenshot 2025-01-05 at 9.55.11 PM.png](screenshots%2Fkubernetes%2FScreenshot%202025-01-05%20at%209.55.11%E2%80%AFPM.png)
+
+### 5.Verify the tables are updated
+
+Execute the mysql pod with following command
+
+```bash
+kubectl exec -it <your-pod-name> -- /bin/bash
+```
+
+```bash
+kubectl exec -it mysql-55d56f565d-fckkb -- /bin/bash
+```
+Login to mysql server
+
+```bash
+mysql -u root -p
+```
+
+Enter password on prompt.
+
+Verify the database with following.
+
+```bash
+show databases;
+
+use product_database;
+
+select * from inventory;
+
+select * from orders;
+
+select * from billing;
+
+```
+
+![Screenshot 2025-01-05 at 10.01.35 PM.png](screenshots%2Fkubernetes%2FScreenshot%202025-01-05%20at%2010.01.35%E2%80%AFPM.png)
+
+<i>All tables are updated. Services are able to communicate with each other with kafka messaging.</i>
 
 ## Monitoring
 
