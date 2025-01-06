@@ -372,6 +372,67 @@ select * from billing;
 
 <i>All tables are updated. Services are able to communicate with each other with kafka messaging.</i>
 
+## Auto Scaling
+
+HorizontalPodAutoscaler is the configuration for a horizontal pod autoscaler, which automatically manages the replica count of any resource implementing the scale subresource based on the metrics specified.
+
+Find autoscaling.yaml file in `infrastructure/autoscaling`
+
+```bash
+kubectl apply -f autoscaling.yaml
+```
+
+```bash
+kubectl get hpa
+```
+
+```bash
+kubectl describe hpa <hpa-name>
+```
+
+![Screenshot 2025-01-06 at 12.40.35 PM.png](screenshots%2Fkubernetes%2FScreenshot%202025-01-06%20at%2012.40.35%E2%80%AFPM.png)
+
+- <h3> Troubleshooting auto scaler </h3>
+    Cluster is missing the Metrics Server, which HPA needs to collect resource metrics. 
+
+  You might see the following error when you describe the hpa.
+  ```bash
+    Warning  FailedGetResourceMetric       12s (x3 over 42s)  horizontal-pod-autoscaler  failed to get cpu utilization: unable to get metrics for resource cpu: unable to fetch metrics from resource metrics API: the server is currently unable to handle the request (get pods.metrics.k8s.io)
+    Warning  FailedGetResourceMetric       12s (x3 over 42s)  horizontal-pod-autoscaler  failed to get memory utilization: unable to get metrics for resource memory: unable to fetch metrics from resource metrics API: the server is currently unable to handle the request (get pods.metrics.k8s.io)
+  ```
+  Install metrics server with following command
+
+  ```bash
+  kubectl apply -f https://github.com/kubernetes-sigs/metrics-server/releases/latest/download/components.yaml
+  ```
+  Enable in minikube with:
+
+  ```bash
+  minikube addons enable metrics-server
+  ```
+
+### ToDo :
+The high memory usage you're seeing is likely due to Java's default heap space allocation in Spring Boot applications. The JVM allocates a percentage of the container's memory limit (512Mi) at startup, even if the application isn't actively using it.  
+<br>
+To optimize this, add these JVM arguments to your container specs:
+
+```bash
+env:
+  - name: JAVA_OPTS
+    value: "-Xms128m -Xmx256m -XX:+UseG1GC"
+  - name: SPRING_HEAP_MEMORY
+    value: "-XX:MaxRAMPercentage=50.0"
+```
+
+This will:
+
+- Set initial heap size to 128MB
+- Limit max heap to 256MB
+- Use G1 garbage collector
+- Limit JVM memory to 50% of container memory
+
+
+
 ## Monitoring
 
 Monitor your deployment using:
@@ -400,7 +461,7 @@ kubectl delete all --all -n default
 # Stop Minikube
 minikube stop
 ```
-
+    
 ## Additional Notes
 
 - All services are configured to use internal Kubernetes DNS for service discovery
