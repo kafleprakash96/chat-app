@@ -1,3 +1,0 @@
-[submodule "users-service"]
-	path = users-service
-	url = git@github.com:kafleprakash96/spring-boot-kafka.git
