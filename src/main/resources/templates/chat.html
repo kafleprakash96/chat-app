@@ -1,0 +1,372 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head>
+    <title>Chat Room</title>
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+
+        body {
+            background: #f0f2f5;
+            height: 100vh;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .chat-container {
+            max-width: 1000px;
+            margin: 20px auto;
+            background: white;
+            border-radius: 12px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            display: flex;
+            flex-direction: column;
+            height: calc(100vh - 40px);
+            position: relative;
+            overflow: hidden;
+        }
+
+        .chat-header {
+            padding: 20px;
+            background: #ffffff;
+            border-bottom: 1px solid #e0e0e0;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+
+        .chat-header h2 {
+            color: #1a1a1a;
+            font-size: 1.2rem;
+        }
+
+        .online-users {
+            font-size: 0.9rem;
+            color: #65676b;
+        }
+
+        .messages-container {
+            flex: 1;
+            overflow-y: auto;
+            padding: 20px;
+            background: #fff;
+        }
+
+        .message {
+            max-width: 70%;
+            margin: 8px 0;
+            padding: 10px 15px;
+            border-radius: 18px;
+            position: relative;
+            animation: fadeIn 0.3s ease-out;
+            transition: opacity 0.3s ease;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        .message.sent {
+            margin-left: auto;
+            background: #0084ff;
+            color: white;
+            border-bottom-right-radius: 4px;
+        }
+
+        .message.received {
+            margin-right: auto;
+            background: #f0f0f0;
+            color: #1a1a1a;
+            border-bottom-left-radius: 4px;
+        }
+
+        .message.consumed {
+            opacity: 0.7;
+        }
+
+        .message-sender {
+            font-size: 0.8rem;
+            margin-bottom: 4px;
+            font-weight: 500;
+        }
+
+        .message-content {
+            font-size: 0.95rem;
+            line-height: 1.4;
+            word-wrap: break-word;
+        }
+
+        .message-meta {
+            display: flex;
+            align-items: center;
+            justify-content: flex-end;
+            font-size: 0.75rem;
+            margin-top: 4px;
+            color: rgba(255,255,255,0.7);
+        }
+
+        .received .message-meta {
+            color: #65676b;
+        }
+
+        .message-status {
+            margin-left: 5px;
+        }
+
+        .input-container {
+            padding: 20px;
+            background: #ffffff;
+            border-top: 1px solid #e0e0e0;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        #messageInput {
+            flex: 1;
+            padding: 12px;
+            border: 1px solid #e0e0e0;
+            border-radius: 24px;
+            outline: none;
+            font-size: 0.95rem;
+            transition: border-color 0.3s ease;
+        }
+
+        #messageInput:focus {
+            border-color: #0084ff;
+        }
+
+        .send-button {
+            background: #0084ff;
+            color: white;
+            border: none;
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: background-color 0.3s ease;
+        }
+
+        .send-button:hover {
+            background: #0073e6;
+        }
+
+        .send-button:disabled {
+            background: #cccccc;
+            cursor: not-allowed;
+        }
+
+        .typing-indicator {
+            padding: 10px;
+            color: #65676b;
+            font-size: 0.9rem;
+            font-style: italic;
+        }
+
+        .user-badge {
+            background: #e4e6eb;
+            padding: 4px 8px;
+            border-radius: 12px;
+            font-size: 0.8rem;
+            margin-right: 8px;
+        }
+
+        .tooltip {
+            position: absolute;
+            background: rgba(0,0,0,0.8);
+            color: white;
+            padding: 5px 10px;
+            border-radius: 4px;
+            font-size: 0.8rem;
+            bottom: 100%;
+            left: 50%;
+            transform: translateX(-50%);
+            display: none;
+        }
+
+        .message:hover .tooltip {
+            display: block;
+        }
+    </style>
+</head>
+<body>
+<div class="chat-container">
+    <div class="chat-header">
+        <div>
+            <h2 th:text="${room.name}">Chat Room</h2>
+            <div class="online-users">
+                <span id="activeUsers">0</span> users active
+            </div>
+        </div>
+        <div class="room-actions">
+            <span class="user-badge" th:text="${currentUser}"></span>
+        </div>
+    </div>
+
+    <div class="messages-container" id="messages">
+        <div th:each="message : ${messages}"
+             th:id="'msg-' + ${message.id}"
+             th:class="'message ' + (${message.sender == currentUser ? 'sent' : 'received'}) + (${message.consumed ? ' consumed' : ''})">
+            <div class="tooltip" th:if="${message.consumed}">
+                Seen by everyone
+            </div>
+            <div class="message-sender" th:text="${message.sender}"></div>
+            <div class="message-content" th:text="${message.content}"></div>
+            <div class="message-meta">
+                <span class="message-time" th:text="${#temporals.format(message.timestamp, 'HH:mm')}"></span>
+                <span class="message-status">
+                        <i th:if="${message.consumed}" class="fas fa-check-double"></i>
+                        <i th:unless="${message.consumed}" class="fas fa-check"></i>
+                    </span>
+            </div>
+        </div>
+    </div>
+
+    <div class="typing-indicator" id="typingIndicator" style="display: none">
+        Someone is typing...
+    </div>
+
+    <div class="input-container">
+        <input type="text"
+               id="messageInput"
+               placeholder="Type a message..."
+               autocomplete="off"/>
+        <button class="send-button" onclick="sendMessage()" id="sendButton">
+            <i class="fas fa-paper-plane"></i>
+        </button>
+    </div>
+</div>
+
+<script th:inline="javascript">
+    const currentUser = /*[[${currentUser}]]*/ 'defaultUser';
+    const roomId = /*[[${roomId}]]*/ '';
+    let typingTimeout;
+
+    function sendMessage() {
+        const content = $('#messageInput').val().trim();
+        if (!content) return;
+
+        const messageElement = createMessageElement({
+            id: 'temp-' + Date.now(),
+            content: content,
+            sender: currentUser,
+            timestamp: new Date(),
+            consumed: false
+        });
+
+        $('#messages').append(messageElement);
+        scrollToBottom();
+
+        $('#messageInput').val('');
+        $('#sendButton').prop('disabled', true);
+
+        $.post(`/room/${roomId}/send`, {
+            content: content,
+            sender: currentUser
+        })
+            .done(function(response) {
+                $('#sendButton').prop('disabled', false);
+            })
+            .fail(function(error) {
+                alert('Failed to send message');
+                $('#sendButton').prop('disabled', false);
+            });
+    }
+
+    function createMessageElement(message) {
+        const isOwn = message.sender === currentUser;
+        return `
+                <div id="msg-${message.id}"
+                     class="message ${isOwn ? 'sent' : 'received'} ${message.consumed ? 'consumed' : ''}"
+                     style="opacity: 0">
+                    ${message.consumed ? '<div class="tooltip">Seen by everyone</div>' : ''}
+                    <div class="message-sender">${message.sender}</div>
+                    <div class="message-content">${message.content}</div>
+                    <div class="message-meta">
+                        <span class="message-time">${new Date(message.timestamp).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}</span>
+                        <span class="message-status">
+                            <i class="fas ${message.consumed ? 'fa-check-double' : 'fa-check'}"></i>
+                        </span>
+                    </div>
+                </div>
+            `;
+    }
+
+    function updateMessages() {
+        const lastMessageId = $('.message').last().attr('id')?.split('-')[1] || 0;
+
+        $.get(`/room/${roomId}/messages?after=${lastMessageId}`)
+            .done(function(messages) {
+                messages.forEach(function(message) {
+                    if (!$(`#msg-${message.id}`).length) {
+                        const messageElement = createMessageElement(message);
+                        $('#messages').append(messageElement);
+                        setTimeout(() => {
+                            $(`#msg-${message.id}`).css('opacity', 1);
+                        }, 100);
+                    }
+                });
+
+                if (messages.length) {
+                    scrollToBottom();
+                }
+            });
+    }
+
+    function scrollToBottom() {
+        const messagesContainer = document.getElementById('messages');
+        messagesContainer.scrollTop = messagesContainer.scrollHeight;
+    }
+
+    function handleTyping() {
+        clearTimeout(typingTimeout);
+
+        $.post(`/room/${roomId}/typing`, { user: currentUser });
+
+        typingTimeout = setTimeout(() => {
+            $.post(`/room/${roomId}/stop-typing`, { user: currentUser });
+        }, 1000);
+    }
+
+    // Event Listeners
+    $('#messageInput').on('input', handleTyping);
+
+    $('#messageInput').keypress(function(e) {
+        if (e.which == 13) {
+            sendMessage();
+        }
+    });
+
+    // Initialize
+    scrollToBottom();
+    setInterval(updateMessages, 2000);
+
+    // Mark messages as seen when they come into view
+    const observer = new IntersectionObserver((entries) => {
+        entries.forEach(entry => {
+            if (entry.isIntersecting) {
+                const messageId = entry.target.id.split('-')[1];
+                if (messageId !== 'temp') {
+                    $.post(`/message/${messageId}/seen`, { username: currentUser });
+                }
+            }
+        });
+    }, { threshold: 1.0 });
+
+    // Observe existing messages
+    document.querySelectorAll('.message').forEach(message => {
+        observer.observe(message);
+    });
+</script>
+</body>
+</html>

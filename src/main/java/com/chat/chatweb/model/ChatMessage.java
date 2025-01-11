@@ -1,0 +1,38 @@
+package com.chat.chatweb.model;
+
+import com.fasterxml.jackson.annotation.JsonIgnore;
+import com.fasterxml.jackson.annotation.JsonProperty;
+import jakarta.persistence.*;
+import lombok.AllArgsConstructor;
+import lombok.Data;
+import lombok.NoArgsConstructor;
+
+import java.time.LocalDateTime;
+import java.util.HashSet;
+import java.util.Set;
+
+@Entity
+@Data
+@NoArgsConstructor
+@AllArgsConstructor
+public class ChatMessage {
+
+    @Id
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    private Long id;
+
+    private String content;
+    private String sender;
+
+    @JsonProperty("timestamp")
+    private LocalDateTime timestamp;
+    private boolean consumed;
+
+    @ManyToOne
+    @JoinColumn(name = "chat_room_id")
+    private ChatRoom chatRoom;
+
+    @ElementCollection
+    @JsonIgnore
+    private Set<String> seenby = new HashSet<>();
+}
