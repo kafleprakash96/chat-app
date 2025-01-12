@@ -21,6 +21,12 @@ public class KafkaConfig {
     @Value("${SPRING_KAFKA_BOOTSTRAP_SERVERS}")
     private String bootstrapServer;
 
+    @Value("${SPRING_KAFKA_CONSUMER_GROUP_ID}")
+    private String consumerGroupId;
+
+    @Value("${SPRING_KAFKA_CONSUMER_AUTO_OFFSET_RESET}")
+    private String autoOffset;
+
     @Bean
     public ProducerFactory<String, String> producerFactory() {
         Map<String, Object> config = new HashMap<>();
@@ -39,9 +45,10 @@ public class KafkaConfig {
     public ConsumerFactory<String, String> consumerFactory() {
         Map<String, Object> config = new HashMap<>();
         config.put(ConsumerConfig.BOOTSTRAP_SERVERS_CONFIG, bootstrapServer);
-        config.put(ConsumerConfig.GROUP_ID_CONFIG, "chat-group");
+        config.put(ConsumerConfig.GROUP_ID_CONFIG, consumerGroupId);
         config.put(ConsumerConfig.KEY_DESERIALIZER_CLASS_CONFIG, StringDeserializer.class);
         config.put(ConsumerConfig.VALUE_DESERIALIZER_CLASS_CONFIG, StringDeserializer.class);
+        config.put(ConsumerConfig.AUTO_OFFSET_RESET_CONFIG,autoOffset);
         return new DefaultKafkaConsumerFactory<>(config);
     }
 
