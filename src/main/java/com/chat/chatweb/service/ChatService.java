@@ -48,6 +48,10 @@ public class ChatService {
         return chatRoomRepository.save(room);
     }
 
+    public List<ChatRoom> getAllRooms(){
+        return chatRoomRepository.findAll();
+    }
+
     public ChatRoom getRoom(Long roomId) {
         return chatRoomRepository.findById(roomId)
                 .orElseThrow(() -> new RuntimeException("Room not found with id: " + roomId));
