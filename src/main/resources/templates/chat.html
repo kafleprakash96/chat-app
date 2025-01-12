@@ -3,6 +3,97 @@
 <head>
     <title>Chat Room</title>
     <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/sockjs-client@1/dist/sockjs.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/sockjs-client/1.5.1/sockjs.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/stomp.js/2.3.3/stomp.min.js"></script>
+
+    <script th:inline="javascript">
+        const currentUser = /*[[${currentUser}]]*/ 'defaultUser';
+        const roomId = /*[[${roomId}]]*/ '';
+        let stompClient = null;
+        let typingTimeout;
+
+        function connect() {
+            const socket = new SockJS('/ws');
+            stompClient = Stomp.over(socket);
+            stompClient.connect({}, function(frame) {
+                console.log('Connected: ' + frame);
+
+                // Subscribe to the room's topic
+                stompClient.subscribe('/topic/room/' + roomId, function(messageOutput) {
+                    const message = JSON.parse(messageOutput.body);
+                    const messageElement = createMessageElement(message);
+                    $('#messages').append(messageElement);
+                    $(`#msg-${message.id}`).css('opacity', 1);
+                });
+            });
+        }
+        function handleTyping() {
+            // You can handle the typing event here, for example, sending a "typing" notification to the server
+            console.log(`${currentUser} is typing...`);
+        }
+
+        function createMessageElement(message) {
+            const isOwn = message.sender === currentUser;
+            return `
+            <div id="msg-${message.id}"
+                 class="message ${isOwn ? 'sent' : 'received'} ${message.consumed ? 'consumed' : ''}"
+                 style="opacity: 0">
+                ${message.consumed ? '<div class="tooltip">Seen by everyone</div>' : ''}
+                <div class="message-sender">${message.sender}</div>
+                <div class="message-content">${message.content}</div>
+                <div class="message-meta">
+                    <span class="message-time">${new Date(message.timestamp).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}</span>
+                    <span class="message-status">
+                        <i class="fas ${message.consumed ? 'fa-check-double' : 'fa-check'}"></i>
+                    </span>
+                </div>
+            </div>
+        `;
+        }
+
+        function sendMessage() {
+            const content = $('#messageInput').val().trim();
+            if (!content) return;
+
+            $('#messageInput').val('');
+            $('#sendButton').prop('disabled', true);
+
+            $.post(`/room/${roomId}/send`, {
+                content: content,
+                sender: currentUser
+            })
+                .always(function() {
+                    $('#sendButton').prop('disabled', false);
+                });
+        }
+
+
+
+        // Event Listeners
+        $('#messageInput').on('input', handleTyping);
+
+        $('#messageInput').keypress(function(e) {
+            if (e.which == 13) {
+                sendMessage();
+            }
+        });
+
+        // Initialize connection
+        connect();
+        setInterval(updateMessages, 2000);
+
+        const observer = new IntersectionObserver((entries) => {
+            // ... your existing observer code
+        }, { threshold: 1.0 });
+
+        // Observe existing messages
+        document.querySelectorAll('.message').forEach(message => {
+            observer.observe(message);
+        });
+
+        // Your existing event listeners...
+    </script>
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
     <style>
         * {
@@ -246,127 +337,5 @@
         </button>
     </div>
 </div>
-
-<script th:inline="javascript">
-    const currentUser = /*[[${currentUser}]]*/ 'defaultUser';
-    const roomId = /*[[${roomId}]]*/ '';
-    let typingTimeout;
-
-    function sendMessage() {
-        const content = $('#messageInput').val().trim();
-        if (!content) return;
-
-        const messageElement = createMessageElement({
-            id: 'temp-' + Date.now(),
-            content: content,
-            sender: currentUser,
-            timestamp: new Date(),
-            consumed: false
-        });
-
-        $('#messages').append(messageElement);
-        scrollToBottom();
-
-        $('#messageInput').val('');
-        $('#sendButton').prop('disabled', true);
-
-        $.post(`/room/${roomId}/send`, {
-            content: content,
-            sender: currentUser
-        })
-            .done(function(response) {
-                $('#sendButton').prop('disabled', false);
-            })
-            .fail(function(error) {
-                alert('Failed to send message');
-                $('#sendButton').prop('disabled', false);
-            });
-    }
-
-    function createMessageElement(message) {
-        const isOwn = message.sender === currentUser;
-        return `
-                <div id="msg-${message.id}"
-                     class="message ${isOwn ? 'sent' : 'received'} ${message.consumed ? 'consumed' : ''}"
-                     style="opacity: 0">
-                    ${message.consumed ? '<div class="tooltip">Seen by everyone</div>' : ''}
-                    <div class="message-sender">${message.sender}</div>
-                    <div class="message-content">${message.content}</div>
-                    <div class="message-meta">
-                        <span class="message-time">${new Date(message.timestamp).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}</span>
-                        <span class="message-status">
-                            <i class="fas ${message.consumed ? 'fa-check-double' : 'fa-check'}"></i>
-                        </span>
-                    </div>
-                </div>
-            `;
-    }
-
-    function updateMessages() {
-        const lastMessageId = $('.message').last().attr('id')?.split('-')[1] || 0;
-
-        $.get(`/room/${roomId}/messages?after=${lastMessageId}`)
-            .done(function(messages) {
-                messages.forEach(function(message) {
-                    if (!$(`#msg-${message.id}`).length) {
-                        const messageElement = createMessageElement(message);
-                        $('#messages').append(messageElement);
-                        setTimeout(() => {
-                            $(`#msg-${message.id}`).css('opacity', 1);
-                        }, 100);
-                    }
-                });
-
-                if (messages.length) {
-                    scrollToBottom();
-                }
-            });
-    }
-
-    function scrollToBottom() {
-        const messagesContainer = document.getElementById('messages');
-        messagesContainer.scrollTop = messagesContainer.scrollHeight;
-    }
-
-    function handleTyping() {
-        clearTimeout(typingTimeout);
-
-        $.post(`/room/${roomId}/typing`, { user: currentUser });
-
-        typingTimeout = setTimeout(() => {
-            $.post(`/room/${roomId}/stop-typing`, { user: currentUser });
-        }, 1000);
-    }
-
-    // Event Listeners
-    $('#messageInput').on('input', handleTyping);
-
-    $('#messageInput').keypress(function(e) {
-        if (e.which == 13) {
-            sendMessage();
-        }
-    });
-
-    // Initialize
-    scrollToBottom();
-    setInterval(updateMessages, 2000);
-
-    // Mark messages as seen when they come into view
-    const observer = new IntersectionObserver((entries) => {
-        entries.forEach(entry => {
-            if (entry.isIntersecting) {
-                const messageId = entry.target.id.split('-')[1];
-                if (messageId !== 'temp') {
-                    $.post(`/message/${messageId}/seen`, { username: currentUser });
-                }
-            }
-        });
-    }, { threshold: 1.0 });
-
-    // Observe existing messages
-    document.querySelectorAll('.message').forEach(message => {
-        observer.observe(message);
-    });
-</script>
 </body>
 </html>

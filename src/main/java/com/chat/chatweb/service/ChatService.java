@@ -6,11 +6,13 @@ import com.chat.chatweb.repository.ChatMessageRepository;
 import com.chat.chatweb.repository.ChatRoomRepository;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import org.apache.kafka.clients.consumer.ConsumerRecord;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.kafka.annotation.KafkaListener;
 import org.springframework.kafka.core.KafkaTemplate;
+import org.springframework.messaging.simp.SimpMessagingTemplate;
 import org.springframework.stereotype.Service;
 
 import java.time.LocalDateTime;
@@ -25,6 +27,9 @@ public class ChatService {
     private final ChatRoomRepository chatRoomRepository;
     private final ChatMessageRepository chatMessageRepository;
     private final KafkaTemplate<String, String> kafkaTemplate;
+
+    @Autowired
+    private SimpMessagingTemplate messagingTemplate;
 
     @Autowired
     private ObjectMapper objectMapper;
@@ -97,8 +102,15 @@ public class ChatService {
     }
 
     @KafkaListener(topics = "chat-topic",groupId = "chat-group")
-    public void listen(ChatMessage message){
-        log.info("Received message: " + message.getContent());
+    public void listen(ConsumerRecord<String,String> record){
+        try{
+            String messageJson = record.value();
+            ChatMessage message = objectMapper.readValue(messageJson,ChatMessage.class);
+            messagingTemplate.convertAndSend("/topic/room/" + message.getChatRoom().getId(),message);
+
+        }catch (JsonProcessingException e){
+            log.error("Error while processing message from kafka", e);
+        }
     }
 
 
